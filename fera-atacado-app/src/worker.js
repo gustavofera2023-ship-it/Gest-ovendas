@@ -1,4 +1,4 @@
-/** Fera Atacado | Cloudflare Worker + D1. Nenhum dado fictício em produção. */
+/** Fera Atacado | Cloudflare Worker + D1. Gerencial sem login, acesso público de escrita. */
 const HEADERS={
   'Content-Type':'application/json; charset=utf-8',
   'Cache-Control':'no-store, max-age=0',
@@ -15,19 +15,7 @@ const validName=x=>typeof x==='string'&&safeName(x).length>=2&&safeName(x).lengt
 const validCount=n=>Number.isSafeInteger(n)&&n>=0&&n<=9999999;
 const settingsDefault={rotation:11,ticker:42,auto:true};
 const eventLabel={whatsapp:'WhatsApp',attender:'Attender',vivo_digital:'Vivo Digital'};
-const encoder=new TextEncoder();
-const b64url=bytes=>btoa(String.fromCharCode(...bytes)).replace(/\+/g,'-').replace(/\//g,'_').replace(/=/g,'');
-const fromB64url=str=>Uint8Array.from(atob(str.replace(/-/g,'+').replace(/_/g,'/')+'='.repeat((4-str.length%4)%4)),x=>x.charCodeAt(0));
-async function hmac(secret,msg){const key=await crypto.subtle.importKey('raw',encoder.encode(secret),{name:'HMAC',hash:'SHA-256'},false,['sign']);return new Uint8Array(await crypto.subtle.sign('HMAC',key,encoder.encode(msg)))}
-async function hash(x){return new Uint8Array(await crypto.subtle.digest('SHA-256',encoder.encode(x)))}
-function equalBytes(a,b){if(a.length!==b.length)return false;let result=0;for(let i=0;i<a.length;i++)result|=a[i]^b[i];return result===0}
-const cookieName='fera_admin_session';
-function getCookie(req){const cookies=req.headers.get('Cookie')||'';return cookies.split(';').map(x=>x.trim()).find(x=>x.startsWith(cookieName+'='))?.slice(cookieName.length+1)||''}
-async function authenticated(req,env){if(!env.SESSION_SECRET)return false;const token=getCookie(req),[payload,sig,...rest]=token.split('.');if(!payload||!sig||rest.length||payload.length>400)return false;try{const expected=await hmac(env.SESSION_SECRET,payload);if(!equalBytes(expected,fromB64url(sig)))return false;const data=JSON.parse(new TextDecoder().decode(fromB64url(payload)));return data.role==='admin'&&Number.isInteger(data.exp)&&Date.now()<data.exp}catch{return false}}
-async function makeCookie(env){const payload=b64url(encoder.encode(JSON.stringify({role:'admin',exp:Date.now()+6*3600*1000})));return `${cookieName}=${payload}.${b64url(await hmac(env.SESSION_SECRET,payload))}; Path=/; HttpOnly; Secure; SameSite=Strict; Max-Age=21600`}
 async function bodyJson(req){const len=Number(req.headers.get('Content-Length')||0);if(len>400000)throw Error('Arquivo ou solicitação grande demais (limite de 400 KB).');if(!req.headers.get('content-type')?.toLowerCase().startsWith('application/json'))throw Error('Envie JSON.');return await req.json()}
-const idempotentLoginLimit=async(env,req)=>{const ip=req.headers.get('CF-Connecting-IP')||'desconhecido',now=Math.floor(Date.now()/1000),key=b64url(await hash(ip+'|'+env.SESSION_SECRET));const limit=await env.DB.prepare('SELECT attempts, window_start FROM login_attempts WHERE ip_hash=?').bind(key).first();if(limit&&now-limit.window_start<900&&limit.attempts>=10)return {blocked:true,key,now};return {blocked:false,key,now,limit}};
-async function logLoginFailure(env,p){if(!p.limit||p.now-p.limit.window_start>=900){await env.DB.prepare('INSERT INTO login_attempts (ip_hash,attempts,window_start) VALUES(?,1,?) ON CONFLICT(ip_hash) DO UPDATE SET attempts=1,window_start=excluded.window_start').bind(p.key,p.now).run()}else await env.DB.prepare('UPDATE login_attempts SET attempts=attempts+1 WHERE ip_hash=?').bind(p.key).run()}
 async function ensureToday(env){const day=brDay(),m=await env.DB.prepare("SELECT value FROM app_meta WHERE key='date'").first();if(!m)throw Error('Banco ainda não inicializado. Execute as migrations D1.');if(m.value!==day){await env.DB.batch([
   env.DB.prepare('UPDATE sellers SET whatsapp=0,attender=0,vivo_digital=0'),
   env.DB.prepare('DELETE FROM events'),
@@ -82,7 +70,6 @@ export default {
   const url=new URL(req.url),path=url.pathname;
   if(!path.startsWith('/api/'))return env.ASSETS.fetch(req);
   if(!env.DB)return fail('Banco D1 não configurado no Worker.',503);
-  if(!env.ADMIN_PASSWORD||!env.SESSION_SECRET||env.ADMIN_PASSWORD.length<12||env.SESSION_SECRET.length<32)return fail('Configure os segredos ADMIN_PASSWORD (mínimo 12) e SESSION_SECRET (mínimo 32) na Cloudflare.',503);
   if(req.method==='POST'){
     const origin=req.headers.get('Origin');if(origin&&origin!==url.origin)return fail('Origem não permitida.',403);
     if(req.headers.get('Sec-Fetch-Site')==='cross-site')return fail('Origem não permitida.',403);
@@ -90,20 +77,10 @@ export default {
   try{
    await ensureToday(env);
    if(path==='/api/state'&&req.method==='GET')return json(await state(env,false));
-   if(path==='/api/session'&&req.method==='GET')return json({authenticated:await authenticated(req,env)});
-   if(path==='/api/login'&&req.method==='POST'){
-     const p=await idempotentLoginLimit(env,req);if(p.blocked)return fail('Muitas tentativas. Tente novamente em 15 minutos.',429);
-     const data=await bodyJson(req);const received=String(data.password??'');if(!equalBytes(await hash(received),await hash(env.ADMIN_PASSWORD))){await logLoginFailure(env,p);return fail('Senha incorreta.',401)}
-     await env.DB.prepare('DELETE FROM login_attempts WHERE ip_hash=?').bind(p.key).run();
-     return json({authenticated:true},200,{'Set-Cookie':await makeCookie(env)});
-   }
-   if(path==='/api/logout'&&req.method==='POST')return json({ok:true},200,{'Set-Cookie':`${cookieName}=; Path=/; HttpOnly; Secure; SameSite=Strict; Max-Age=0`});
    if(path.startsWith('/api/admin/')&&req.method==='GET'){
-     if(!await authenticated(req,env))return fail('Sessão expirada. Entre novamente.',401);
      if(path==='/api/admin/state')return json(await state(env,true));
    }
    if(path.startsWith('/api/admin/')&&req.method==='POST'){
-     if(!await authenticated(req,env))return fail('Sessão expirada. Entre novamente.',401);
      return await applyAction(path,await bodyJson(req),env);
    }
    return fail('Rota não encontrada.',404);
