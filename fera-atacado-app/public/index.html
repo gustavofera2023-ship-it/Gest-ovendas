@@ -21,7 +21,7 @@ main{max-width:1870px;margin:auto;padding:16px clamp(10px,1.3vw,24px) 28px}.noti
 @media(max-width:560px){header{padding:12px}.brand strong{font-size:17px}.brand small{font-size:8px}.logo{width:41px;height:41px}.switch button{padding:7px 9px}.notice{font-size:10px}.kpis{grid-template-columns:repeat(2,minmax(0,1fr))}.kpi{min-height:112px}.kpi .top{font-size:10px}.podium{grid-template-columns:repeat(3,minmax(0,1fr))}.pod .name{font-size:9px}.pod .count{font-size:29px}.pod .count small{font-size:9px;display:block}.rank-grid{grid-template-columns:1fr;grid-template-rows:repeat(10,minmax(42px,auto))}.rankrow{min-width:0}.rname{font-size:12px}.rbar{max-width:none}.rank-pane{padding:12px}.marquee-title{display:none}.admin-stack:last-child{grid-template-columns:1fr}.channels{grid-template-columns:repeat(3,minmax(0,1fr))}.admin-card{padding:12px}}
 @media(prefers-reduced-motion:reduce){*,*:before,*:after{animation-duration:.01ms!important;scroll-behavior:auto!important;transition-duration:.01ms!important}}
 
-.login-panel{max-width:460px;margin:55px auto;padding:28px}.login-panel p{margin:14px 0 20px}
+
 .status.offline{background:#442017;color:#ffc08c;border-color:#a34c20}
 .status.online{color:#42ecaa}
 </style>
@@ -41,7 +41,7 @@ main{max-width:1870px;margin:auto;padding:16px clamp(10px,1.3vw,24px) 28px}.noti
   <div class="tvfooter">Classificação por total de contatos: WhatsApp + Attender + Vivo Digital. Atualiza ao receber novos lançamentos.</div>
 </section>
 <section id="admin-view" class="hidden">
- <div class="admin-title"><div><h2>Painel Gerencial</h2><p>Lançamentos, planilha, vendedores, ranking e configurações da TV.</p></div><div class="actions"><button class="btn primary" onclick="openTvWindow()">▣ Abrir TV em outra aba</button><button class="btn" onclick="exportCSV()">↓ Exportar CSV</button><button class="btn danger" onclick="clearToday()">Zerar contatos do dia</button><button class="btn" onclick="logout()">Sair do Gerencial</button></div></div>
+ <div class="admin-title"><div><h2>Painel Gerencial</h2><p>Lançamentos, planilha, vendedores, ranking e configurações da TV.</p></div><div class="actions"><button class="btn primary" onclick="openTvWindow()">▣ Abrir TV em outra aba</button><button class="btn" onclick="exportCSV()">↓ Exportar CSV</button><button class="btn danger" onclick="clearToday()">Zerar contatos do dia</button></div></div>
  <div id="admin-kpis"></div>
  <div class="admin-layout">
   <div class="admin-stack">
@@ -57,18 +57,7 @@ main{max-width:1870px;margin:auto;padding:16px clamp(10px,1.3vw,24px) 28px}.noti
   </div>
  </div>
 </section>
-<section id="login-view" class="hidden">
-  <div class="pane login-panel">
-    <div class="section-title">🔒 ACESSO AO PAINEL GERENCIAL</div>
-    <p class="helper">Somente pessoas autorizadas podem cadastrar vendedores, importar planilhas ou registrar contatos. A TV permanece pública.</p>
-    <form onsubmit="login(event)">
-      <label class="formlabel" for="admin-password">Senha de administração</label>
-      <input class="field" id="admin-password" type="password" placeholder="Digite sua senha" autocomplete="current-password" required>
-      <button class="btn primary" type="submit" style="margin-top:14px;width:100%">Entrar no Gerencial</button>
-    </form>
-    <p class="feedback" id="login-msg" role="alert" aria-live="polite"></p>
-  </div>
-</section>
+
 </main>
 
 <script>
@@ -77,17 +66,14 @@ main{max-width:1870px;margin:auto;padding:16px clamp(10px,1.3vw,24px) 28px}.noti
 const CH=[['whatsapp','var(--wa)','WhatsApp'],['attender','var(--at)','Attender'],['vivo_digital','var(--vv)','Vivo Digital']];
 const here=new URL(location.href);
 let db={date:'',sellers:[],events:[],settings:{rotation:11,ticker:42,auto:true}},page=0,view=here.searchParams.get('view')==='admin'?'admin':'tv';
-let pageTimer=0,paused=false,lastTickerSignature='',authed=false,updating=false,lastPayload='',polling=false;
+let pageTimer=0,paused=false,lastTickerSignature='',updating=false,lastPayload='',polling=false;
 function setStatus(ok,label){const el=document.getElementById('net-status');el.textContent=label;el.classList.toggle('offline',!ok);el.classList.toggle('online',ok)}
 async function api(path,body){const opts={credentials:'same-origin',cache:'no-store'};if(body!==undefined){opts.method='POST';opts.headers={'Content-Type':'application/json'};opts.body=JSON.stringify(body)}const res=await fetch(path,opts);const data=await res.json().catch(()=>({error:'Resposta inválida do servidor.'}));if(!res.ok){const err=new Error(data.error||'Erro HTTP '+res.status);err.status=res.status;throw err}return data}
-async function load(){if(polling)return;polling=true;try{const state=await api(view==='admin'&&authed?'/api/admin/state':'/api/state');const serialized=JSON.stringify(state);setStatus(true,'● AO VIVO');if(serialized!==lastPayload){const previousSettings=JSON.stringify(db.settings);const previousDate=db.date;db=state;lastPayload=serialized;if(previousDate!==db.date){page=0;lastTickerSignature=''}renderAll();if(previousSettings!==JSON.stringify(db.settings)||previousDate!==db.date)schedule()}}catch(e){setStatus(false,'● SEM CONEXÃO');console.warn('Não foi possível atualizar:',e.message);if(e.status===401){authed=false;view='admin';showView()}}finally{polling=false}}
+async function load(){if(polling)return;polling=true;try{const state=await api(view==='admin'?'/api/admin/state':'/api/state');const serialized=JSON.stringify(state);setStatus(true,'● AO VIVO');if(serialized!==lastPayload){const previousSettings=JSON.stringify(db.settings);const previousDate=db.date;db=state;lastPayload=serialized;if(previousDate!==db.date){page=0;lastTickerSignature=''}renderAll();if(previousSettings!==JSON.stringify(db.settings)||previousDate!==db.date)schedule()}}catch(e){setStatus(false,'● SEM CONEXÃO');console.warn('Não foi possível atualizar:',e.message);}finally{polling=false}}
 async function refresh(){lastPayload='';await load()}
-function showView(){document.getElementById('tv-view').classList.toggle('hidden',view!=='tv');document.getElementById('admin-view').classList.toggle('hidden',view!=='admin'||!authed);document.getElementById('login-view').classList.toggle('hidden',view!=='admin'||authed);document.getElementById('nav-tv').classList.toggle('active',view==='tv');document.getElementById('nav-admin').classList.toggle('active',view==='admin');if(view==='admin'&&!authed)document.getElementById('admin-password').focus()}
-function switchView(next){view=next==='admin'?'admin':'tv';const u=new URL(location.href);u.searchParams.set('view',view);history.replaceState({},'',u);showView();if(view==='tv')renderTV();else if(authed)renderAdmin();schedule();refresh()}
-async function checkSession(){try{authed=(await api('/api/session')).authenticated===true}catch{authed=false}showView()}
-async function login(e){e.preventDefault();const password=document.getElementById('admin-password').value,msg=document.getElementById('login-msg');msg.textContent='Verificando acesso…';try{await api('/api/login',{password});document.getElementById('admin-password').value='';authed=true;msg.textContent='';showView();await refresh()}catch(err){msg.textContent=err.message}}
-async function logout(){try{await api('/api/logout',{})}catch{}authed=false;db.events=[];showView();await refresh()}
-async function mutate(path,body,messageEl,successMsg){if(updating)return false;updating=true;try{const result=await api(path,body);db=result;lastPayload='';renderAll();if(messageEl)document.getElementById(messageEl).textContent=successMsg||'✓ Salvo no servidor.';await refresh();return true}catch(e){if(e.status===401){authed=false;showView()}alert(e.message);return false}finally{updating=false}}
+function showView(){document.getElementById('tv-view').classList.toggle('hidden',view!=='tv');document.getElementById('admin-view').classList.toggle('hidden',view!=='admin');document.getElementById('nav-tv').classList.toggle('active',view==='tv');document.getElementById('nav-admin').classList.toggle('active',view==='admin')}
+function switchView(next){view=next==='admin'?'admin':'tv';const u=new URL(location.href);u.searchParams.set('view',view);history.replaceState({},'',u);showView();if(view==='tv')renderTV();else renderAdmin();schedule();refresh()}
+async function mutate(path,body,messageEl,successMsg){if(updating)return false;updating=true;try{const result=await api(path,body);db=result;lastPayload='';renderAll();if(messageEl)document.getElementById(messageEl).textContent=successMsg||'✓ Salvo no servidor.';await refresh();return true}catch(e){alert(e.message);return false}finally{updating=false}}
 const escapeHtml=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const total=s=>Number(s.whatsapp||0)+Number(s.attender||0)+Number(s.vivo_digital||0);
 const sum=key=>db.sellers.reduce((a,s)=>a+(key?Number(s[key]||0):total(s)),0);
@@ -103,7 +89,7 @@ function rankRow(s,index,max){const w=total(s)/Math.max(1,max)*100;const segment
 function renderRanking(all){const size=pageSize(),pages=Math.max(1,Math.ceil(all.length/size));page%=pages;const sub=all.slice(page*size,(page+1)*size),grid=document.getElementById('rank-grid'),max=total(all[0]||{whatsapp:0,attender:0,vivo_digital:0})||1;grid.innerHTML=sub.length?sub.map((s,i)=>rankRow(s,page*size+i,max)).join(''):'<div class="rankrow" style="grid-column:1/-1;justify-content:center">Nenhum vendedor cadastrado. Abra o Gerencial para importar a planilha.</div>';document.getElementById('roster-count').textContent=`(${all.length} VENDEDORES)`;document.getElementById('page-desc').textContent=`Página ${page+1} de ${pages} · ${sub.length} nomes`;document.getElementById('pause-btn').textContent=paused?'▶':'Ⅱ';updateProgress()}
 function renderTV(){document.getElementById('tv-kpis').innerHTML=kpis();const all=ranked();renderPodium(all);renderTicker(all);renderRanking(all)}
 function renderAdmin(){document.getElementById('admin-kpis').innerHTML=kpis();const el=document.getElementById('seller-select'),value=el.value;el.innerHTML=db.sellers.map(s=>`<option value="${escapeHtml(s.name)}">${escapeHtml(s.name)}</option>`).join('');if(db.sellers.some(s=>s.name===value))el.value=value;const order=ranked();document.getElementById('admin-roster-count').textContent=`${order.length} vendedores`;document.getElementById('admin-rows').innerHTML=order.map((s,i)=>`<tr><td>${i+1}</td><td><b>${escapeHtml(s.name)}</b></td><td class="n" style="color:var(--wa)">${s.whatsapp}</td><td class="n" style="color:var(--at)">${s.attender}</td><td class="n" style="color:#c0a0ff">${s.vivo_digital}</td><td class="n">${total(s)}</td><td><button class="tiny" data-edit="${escapeHtml(s.name)}">Editar</button> <button class="tiny remove" data-delete="${escapeHtml(s.name)}">Excluir</button></td></tr>`).join('');const grand=Math.max(1,sum());document.getElementById('distribution').innerHTML=CH.map(([key,color,label])=>{let n=sum(key),p=Math.round(n/grand*100);return `<div class="setting"><span>${label}</span><b>${n} (${p}%)</b></div><div class="barsummary"><span style="width:${p}%;background:${color}"></span></div>`}).join('');document.getElementById('recent').innerHTML=db.events.length?db.events.slice(0,9).map(e=>`<div class="logrow">${escapeHtml(e.time||'')}: <b>${escapeHtml(e.name)}</b> · ${escapeHtml(e.channel)} ${e.change>0?'+':''}${e.change}</div>`).join(''):'Nenhum lançamento registrado hoje.';document.getElementById('rotation-secs').value=db.settings.rotation;document.getElementById('ticker-secs').value=db.settings.ticker;document.getElementById('autorotate').checked=db.settings.auto}
-function renderAll(){renderTV();if(authed)renderAdmin()}
+function renderAll(){renderTV();if(view==='admin')renderAdmin()}
 function updateProgress(){const bar=document.getElementById('page-progress');if(!db.settings.auto||paused||view!=='tv'||countPages()<=1){bar.style.transition='none';bar.style.width='0%';return}bar.style.transition='none';bar.style.width='0%';void bar.offsetWidth;bar.style.transition=`width ${db.settings.rotation}s linear`;bar.style.width='100%'}
 function schedule(){clearInterval(pageTimer);if(db.settings.auto&&!paused&&view==='tv'&&countPages()>1){pageTimer=setInterval(()=>{page=(page+1)%countPages();const grid=document.getElementById('rank-grid');grid.classList.add('changing');setTimeout(()=>{renderRanking(ranked());grid.classList.remove('changing')},290)},db.settings.rotation*1000)}updateProgress()}
 function nextPage(){page=(page+1)%countPages();renderRanking(ranked());schedule()}
@@ -127,7 +113,7 @@ async function clearToday(){if(!confirm('ZERAR todos os contatos de hoje, manten
 async function updateSettings(){const rotation=Number(document.getElementById('rotation-secs').value),ticker=Number(document.getElementById('ticker-secs').value),auto=document.getElementById('autorotate').checked;if(!Number.isSafeInteger(rotation)||rotation<4||rotation>60||!Number.isSafeInteger(ticker)||ticker<12||ticker>120){alert('Intervalo de páginas 4 a 60 segundos; faixa 12 a 120 segundos.');return}if(await mutate('/api/admin/settings',{rotation,ticker,auto}))schedule()}
 function applyRows(rows){const seen=new Set(),clean=[];for(const [index,row] of rows.entries()){const name=String(row.name??'').trim().toLocaleUpperCase('pt-BR');if(!name)continue;const record={name};for(const key of ['whatsapp','attender','vivo_digital']){const value=String(row[key]??0).trim(),n=Number(value||0);if(!Number.isSafeInteger(n)||n<0||n>9999999)throw Error(`Valor inválido na linha ${index+2}: ${key}`);record[key]=n}if(seen.has(name))throw Error('Vendedor duplicado: '+name);seen.add(name);clean.push(record)}if(!clean.length)throw Error('Nenhum vendedor encontrado.');if(!confirm(`Substituir os dados atuais pelos ${clean.length} vendedores do arquivo? Isso não pode ser desfeito.`))return;return mutate('/api/admin/import',{sellers:clean},'import-msg',`✓ ${clean.length} vendedores importados no servidor.`)}
 async function importFile(){const file=document.getElementById('file-import').files[0],msg=document.getElementById('import-msg');if(!file){msg.textContent='Selecione um arquivo.';return}try{if(/\.csv$/i.test(file.name)){await applyRows(parseCsv(await file.text()));return}if(!/\.xlsx?$/i.test(file.name))throw Error('Escolha um arquivo Excel ou CSV.');if(!window.XLSX){await new Promise((resolve,reject)=>{const script=document.createElement('script');script.src='https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js';script.onload=resolve;script.onerror=()=>reject(Error('Não foi possível carregar o leitor Excel. Tente CSV.'));document.head.appendChild(script)})}const wb=XLSX.read(await file.arrayBuffer(),{type:'array'}),sheet=wb.Sheets[wb.SheetNames[0]],data=XLSX.utils.sheet_to_json(sheet,{defval:0});await applyRows(data.map(row=>{const normalized=Object.fromEntries(Object.entries(row).map(([k,v])=>[normalize(k),v]));return{name:normalized.vendedor,whatsapp:normalized.whatsapp,attender:normalized.attender,vivo_digital:normalized['vivo digital']??normalized.vivo_digital}}))}catch(e){msg.textContent='Erro: '+e.message}}
-function start(){renderTV();clock();setInterval(clock,1000);checkSession().then(()=>{refresh();schedule()});setInterval(load,5000);window.addEventListener('resize',()=>{renderRanking(ranked());schedule()});}
+function start(){renderTV();clock();setInterval(clock,1000);showView();refresh();schedule();setInterval(load,5000);window.addEventListener('resize',()=>{renderRanking(ranked());schedule()});}
 start();
 
 </script>
