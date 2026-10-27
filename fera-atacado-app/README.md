@@ -65,3 +65,4 @@ Abra o link TV **em outro aparelho** e lance um contato no Gerencial. Em até ce
 - O projeto foi testado localmente com uma API simulando D1 e verificação de sintaxe. **A implantação no seu ambiente Cloudflare depende da configuração acima e ainda precisa ser conferida depois.**
 
 Documentação oficial: https://developers.cloudflare.com/d1/get-started/ e https://developers.cloudflare.com/workers/static-assets/binding/.
+Aplicativo Fera Atacado — Cloudflare Workers
