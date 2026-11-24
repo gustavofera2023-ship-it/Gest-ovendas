@@ -12,3 +12,10 @@ binding = "DB"
 database_name = "fera-contatos"
 database_id = "a316d58e-9fe7-49ab-b3b4-ea0dd5ae3f1a"
 migrations_dir = "migrations"
+
+[previews]
+
+[[previews.d1_databases]]
+binding = "DB"
+database_name = "gest-ovendas-teste"
+database_id = "2f5038a8-30a5-4757-a041-aea6b4696c85"
